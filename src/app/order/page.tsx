@@ -60,6 +60,7 @@ class Home extends Component<{}, State> {
             });
             this.prices = prices;
             this.setState({ itemPrices: prices, pricesLoaded: true });
+            // console.log(prices)
             return prices;
         } catch (error) {
             console.error('Error loading prices:', error);
@@ -171,14 +172,26 @@ class Home extends Component<{}, State> {
 
     render() {
         return (
-            <div>
-                <div className='flex justify-center items-center space-x-10'>
-                    <CardSectionWebCam />
-                    <CardCheckout items={this.state.checkoutItems} />
+            <div
+                className="relative min-h-screen w-full bg-cover bg-center bg-no-repeat"
+                style={{
+                    backgroundImage: "url('/Images/BcFood2.jpg')", // Replace with your actual image path
+                }}
+            >
+                {/* Dark overlay */}
+                <div className="absolute inset-0 bg-black opacity-50"></div>
+    
+                {/* Content */}
+                <div className="relative z-10 flex justify-center items-center min-h-screen">
+                    <div className="flex justify-center items-center space-x-10">
+                        <CardSectionWebCam />
+                        <CardCheckout items={this.state.checkoutItems} />
+                    </div>
                 </div>
             </div>
         );
     }
+    
 }
 
 export default Home;

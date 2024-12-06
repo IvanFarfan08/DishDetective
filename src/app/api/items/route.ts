@@ -11,3 +11,8 @@ export async function GET() {
 } 
 
 
+export async function POST(request: Request) {
+    const {products} = await request.json()
+    console.log(products);
+    return NextResponse.json({message: "Success"})
+}

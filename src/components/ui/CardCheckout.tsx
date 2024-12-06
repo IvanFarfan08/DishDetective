@@ -1,4 +1,5 @@
 import { CardBody, CardContainer, CardItem } from "@/components/ui/3d-card";
+import {loadStripe} from '@stripe/stripe-js';
 
 interface CardCheckoutProps {
     items: Array<{
@@ -10,6 +11,36 @@ interface CardCheckoutProps {
 
 export function CardCheckout({ items }: CardCheckoutProps) {
     const total = items.reduce((sum, item) => sum + item.price, 0);
+    console.log(items);
+
+    const handleCheckout = async () => {
+        try {
+            const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string);
+            const response = await fetch("/api/checkout", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ products: items })
+            });
+
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+
+            const session = await response.json();
+            const result = await stripe?.redirectToCheckout({
+                sessionId: session.id
+            });
+
+            if (result?.error) {
+                alert(result.error.message);
+            }
+        } catch (error) {
+            console.error('Error during checkout:', error);
+            alert('There was an error processing your checkout. Please try again.');
+        }
+    }
 
     return (
         <CardContainer className="inter-var">
@@ -31,7 +62,7 @@ export function CardCheckout({ items }: CardCheckoutProps) {
                                 </div>
                             </div>
                         )}
-                        <button className="mt-4 w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600">
+                        <button onClick={handleCheckout} className="mt-4 w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600">
                             Checkout
                         </button>
                     </div>
