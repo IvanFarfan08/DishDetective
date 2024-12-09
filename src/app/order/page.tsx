@@ -21,13 +21,86 @@ interface State {
     pricesLoaded: boolean;
 }
 
-class Home extends Component<{}, State> {
-    initialized = false;
-    prices: Record<string, number> = {};
-    model: any;
+class WebcamManager {
     webcam: any;
     labelContainer: any;
+    width: number = 430;
+    height: number = 400;
+    flip: boolean = true;
+
+    async setupWebcam() {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        const camToUse = videoDevices[1].deviceId;
+        this.webcam = new tmImage.Webcam(this.width, this.height, this.flip);
+        await this.webcam.setup({ deviceId: camToUse });
+    }
+
+    attachWebcam(isIos: boolean) {
+        if (isIos) {
+            document.getElementById('webcam-container')?.appendChild(this.webcam.webcam);
+            const webCamVideo = document.getElementsByTagName('video')[0];
+            webCamVideo.setAttribute("playsinline", "true");
+            webCamVideo.muted = true;
+            webCamVideo.style.width = this.width + 'px';
+            webCamVideo.style.height = this.height + 'px';
+            webCamVideo.style.borderRadius = '0.75rem';
+        } else {
+            document.getElementById("webcam-container")?.appendChild(this.webcam.canvas);
+            this.webcam.canvas.style.borderRadius = '0.75rem';
+        }
+    }
+
+    play() {
+        this.webcam.play();
+    }
+
+    update() {
+        this.webcam.update();
+    }
+}
+
+class ModelManager {
+    model: any;
     maxPredictions: number = 0;
+
+    async loadModel() {
+        const URL = 'https://teachablemachine.withgoogle.com/models/LTvl9244F/';
+        const modelURL = URL + 'model.json';
+        const metadataURL = URL + 'metadata.json';
+
+        this.model = await tmImage.load(modelURL, metadataURL);
+        this.maxPredictions = this.model.getTotalClasses();
+    }
+
+    async predict(webcam: any, isIos: boolean) {
+        return isIos ? await this.model.predict(webcam.webcam) : await this.model.predict(webcam.canvas);
+    }
+}
+
+class PriceManager {
+    prices: Record<string, number> = {};
+
+    async loadPrices() {
+        try {
+            const response = await fetch('/api/items');
+            const items = await response.json();
+            items.forEach((item: { name: string, price: number }) => {
+                this.prices[item.name.toLowerCase()] = Number(item.price);
+            });
+            return this.prices;
+        } catch (error) {
+            console.error('Error loading prices:', error);
+            return null;
+        }
+    }
+}
+
+class Home extends Component<{}, State> {
+    initialized = false;
+    webcamManager = new WebcamManager();
+    modelManager = new ModelManager();
+    priceManager = new PriceManager();
 
     constructor(props: {}) {
         super(props);
@@ -45,111 +118,54 @@ class Home extends Component<{}, State> {
     }
 
     componentWillUnmount() {
-        if (this.webcam) {
-            this.webcam.stop();
-        }
-    }
-
-    async loadPrices() {
-        try {
-            const response = await fetch('/api/items');
-            const items = await response.json();
-            const prices: Record<string, number> = {};
-            items.forEach((item: { name: string, price: number }) => {
-                prices[item.name.toLowerCase()] = Number(item.price);
-            });
-            this.prices = prices;
-            this.setState({ itemPrices: prices, pricesLoaded: true });
-            // console.log(prices)
-            return prices;
-        } catch (error) {
-            console.error('Error loading prices:', error);
-            return null;
+        if (this.webcamManager.webcam) {
+            this.webcamManager.webcam.stop();
         }
     }
 
     async init() {
-        const prices = await this.loadPrices();
+        const prices = await this.priceManager.loadPrices();
         if (!prices) {
             console.error('Failed to load prices');
             return;
         }
+        this.setState({ itemPrices: prices, pricesLoaded: true });
 
-        const URL = 'https://teachablemachine.withgoogle.com/models/LTvl9244F/';
-        const modelURL = URL + 'model.json';
-        const metadataURL = URL + 'metadata.json';
-
-        this.model = await tmImage.load(modelURL, metadataURL);
-        this.maxPredictions = this.model.getTotalClasses();
-
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-
-        const flip = true;
-        const width = 430;
-        const height = 400;
-        const camToUse = videoDevices[1].deviceId;
-        this.webcam = new tmImage.Webcam(width, height, flip);
-        await this.webcam.setup({ deviceId: camToUse });
+        await this.modelManager.loadModel();
+        await this.webcamManager.setupWebcam();
 
         const isIos = window.navigator.userAgent.indexOf('iPhone') > -1 || 
                       window.navigator.userAgent.indexOf('iPad') > -1;
 
-        if (isIos) {
-            document.getElementById('webcam-container')?.appendChild(this.webcam.webcam);
-            const webCamVideo = document.getElementsByTagName('video')[0];
-            webCamVideo.setAttribute("playsinline", "true");
-            webCamVideo.muted = true;
-            webCamVideo.style.width = width + 'px';
-            webCamVideo.style.height = height + 'px';
-            webCamVideo.style.borderRadius = '0.75rem';
-        } else {
-            document.getElementById("webcam-container")?.appendChild(this.webcam.canvas);
-            this.webcam.canvas.style.borderRadius = '0.75rem';
-        }
-
-        this.labelContainer = document.getElementById('label-container');
-        for (let i = 0; i < this.maxPredictions; i++) {
-            this.labelContainer?.appendChild(document.createElement('div'));
-        }
-
-        this.webcam.play();
+        this.webcamManager.attachWebcam(isIos);
+        this.webcamManager.play();
         window.requestAnimationFrame(this.loop.bind(this));
     }
 
     async loop() {
-        this.webcam.update();
+        this.webcamManager.update();
         await this.predict();
         window.requestAnimationFrame(this.loop.bind(this));
     }
 
     async predict() {
-        let prediction;
-        const isIos = window.navigator.userAgent.indexOf('iPhone') > -1 || 
-                      window.navigator.userAgent.indexOf('iPad') > -1;
-
-        if (isIos) {
-            prediction = await this.model.predict(this.webcam.webcam);
-        } else {
-            prediction = await this.model.predict(this.webcam.canvas);
-        }
-
+        const prediction = await this.modelManager.predict(this.webcamManager.webcam, this.isIos());
         let highestPrediction = prediction[0];
-        for (let i = 0; i < this.maxPredictions; i++) {
+        for (let i = 0; i < this.modelManager.maxPredictions; i++) {
             if (prediction[i].probability > highestPrediction.probability) {
                 highestPrediction = prediction[i];
             }
 
             const classPrediction =
                 prediction[i].className + ': ' + (prediction[i].probability.toFixed(2) * 100) + '%';
-            if (this.labelContainer?.childNodes[i]) {
-                this.labelContainer.childNodes[i].innerHTML = classPrediction;
+            if (this.webcamManager.labelContainer?.childNodes[i]) {
+                this.webcamManager.labelContainer.childNodes[i].innerHTML = classPrediction;
             }
         }
 
         if (highestPrediction.probability > 0.9 && highestPrediction.className !== 'background') {
             const itemName = highestPrediction.className.toLowerCase();
-            const price = this.prices[itemName];
+            const price = this.priceManager.prices[itemName];
             if (typeof price === 'undefined') {
                 console.log('Price not found for item:', itemName);
                 return;
@@ -168,6 +184,11 @@ class Home extends Component<{}, State> {
                 return prevState;
             });
         }
+    }
+
+    isIos() {
+        return window.navigator.userAgent.indexOf('iPhone') > -1 || 
+               window.navigator.userAgent.indexOf('iPad') > -1;
     }
 
     render() {
@@ -191,7 +212,6 @@ class Home extends Component<{}, State> {
             </div>
         );
     }
-    
 }
 
 export default Home;
