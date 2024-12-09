@@ -1,5 +1,6 @@
 "use client";
 import { TypewriterEffectSmooth } from "@/components/ui/typewriter-effect";
+import { HoverBorderGradient } from "@/components/ui/hover-border-gradient";
 import Link from "next/link";
 
 export default function Home() {
@@ -42,7 +43,6 @@ export function HeroSection() {
       </p>
       <TypewriterEffectSmooth words={words} />
       <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 space-x-0 md:space-x-4 mt-6">
-        {}
         <Link href="/order">
           <button className="p-[3px] relative">
             <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg"></div>
@@ -50,6 +50,17 @@ export function HeroSection() {
               Begin
             </div>
           </button>
+        </Link>
+      </div>
+      <div className="fixed bottom-8 right-8">
+        <Link href="/admin">
+          <HoverBorderGradient
+            containerClassName="rounded-full"
+            as="button"
+            className="dark:bg-black bg-white text-black dark:text-white flex items-center space-x-2"
+          >
+            <span>Admin Panel</span>
+          </HoverBorderGradient>
         </Link>
       </div>
     </div>
