@@ -65,7 +65,7 @@ class ModelManager {
     maxPredictions: number = 0;
 
     async loadModel() {
-        const URL = 'https://teachablemachine.withgoogle.com/models/LTvl9244F/';
+        const URL = 'https://teachablemachine.withgoogle.com/models/0wJKr_-2l/';
         const modelURL = URL + 'model.json';
         const metadataURL = URL + 'metadata.json';
 

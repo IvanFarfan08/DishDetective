@@ -1,23 +1,14 @@
-import { loadStripe } from '@stripe/stripe-js';
-
+import { StripeService } from '@/components/facades/StripeService';
+import { ApiService } from '@/components/facades/ApiService';
 
 export class CheckoutFacade {
+    private stripeService = new StripeService();
+    private apiService = new ApiService();
+
     async initiateCheckout(items: Array<{ name: string; confidence: number; price: number }>) {
         try {
-            const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string);
-            const response = await fetch("/api/checkout", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ products: items })
-            });
-
-            if (!response.ok) {
-                throw new Error("Failed to initiate checkout.");
-            }
-
-            const session = await response.json();
+            const stripe = await this.stripeService.initialize();
+            const session = await this.apiService.createCheckoutSession(items);
             const result = await stripe?.redirectToCheckout({ sessionId: session.id });
 
             if (result?.error) {
